@@ -20,13 +20,13 @@
         get skillingActionTypeBuffsDict() { return this.game.state.skillingActionTypeBuffsDict },
         get characterActions() { return this.game.state.characterActions },//[0]是当前正在执行的动作，其余是队列中的动作
 
-        lang: null,//inject, lang.cn.translation.itemNames['/items/coin']
+        lang: null,//inject, lang.zh.translation.itemNames['/items/coin']
         buffCalculator: null,//注入buff计算对象
         alchemyCalculator: null,//注入炼金计算对象
-        
+
         //core市场
         coreMarket: null,//coreMarket.marketData 格式{"/items/apple_yogurt:0":{ask,bid,time}}
-
+        itemDict: null,//物品英文名称反查表
         hookCallback: hookCallback,
     };
     window[injectSpace] = io;
@@ -103,44 +103,62 @@
             targetObj[callbackProp] = originalCallback;
         };
     }
-
-
-    function getItemPrice(itemHrid, enhancementLevel) {
-        fetch("https://mooket.qi-e.top/market/upload/order", {
-            method: "GET",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ itemHrid: itemHrid, enhancementLevel: enhancementLevel })
-        }).then(res => res.json()).then(data => {
-
-        })
-
-    }
+    const host = "http://127.0.0.1:8767"
 
     function waitForGame() {
         return new Promise(resolve => {
             const interval = setInterval(() => {
-                if (io.game) {
+                if (io.game && io.lang) {
                     clearInterval(interval);
                     resolve();
                 }
             }, 1000);
         });
     }
-    waitForGame().then(() => {
-        init();
-    });
 
+    class Price {
+        bid = -1;
+        ask = -1;
+        time = -1;
+        constructor(bid, ask, time) {
+            this.bid = bid;
+            this.ask = ask;
+            this.time = time;
+        }
+    }
     class CoreMarket {
         marketData = {};
         constructor() {
             let marketDataStr = localStorage.getItem("MWICore_marketData") || "{}";
-            marketData = JSON.parse(marketDataStr);
+            this.marketData = JSON.parse(marketDataStr);
+
+            const MARKET_API_URL = "https://raw.githubusercontent.com/holychikenz/MWIApi/main/milkyapi.json";
+            let mwiapiJsonStr = localStorage.getItem("MWIAPI_JSON") || localStorage.getItem("MWITools_marketAPI_json");
+            if (mwiapiJsonStr) this.mergeData(JSON.parse(mwiapiJsonStr));
+            fetch(MARKET_API_URL).then(res => {
+                res.text().then(mwiapiJsonStr => {
+                    let mwiapiJson = JSON.parse(mwiapiJsonStr);
+                    this.mergeData(mwiapiJson);
+                    this.save();
+                    //更新本地缓存数据
+                    localStorage.setItem("MWIAPI_JSON", mwiapiJsonStr);//更新本地缓存数据
+                    console.info("MWIAPI_JSON updated:", new Date(mwiapiJson.time * 1000).toLocaleString());
+                })
+            });
 
             //市场数据上报
             hookCallback(io.game, "handleMessageMarketItemOrderBooksUpdated", (res, obj) => {
-                fetch("https://mooket.qi-e.top/market/upload/order", {
+
+                //更新本地
+                let timestamp = parseInt(Date.now() / 1000);
+                let itemHrid = obj.marketItemOrderBooks.itemHrid;
+                obj.marketItemOrderBooks?.orderBooks?.forEach((item, enhancementLevel) => {
+                    let bid = item.bids?.length > 0 ? item.bids[0].price : -1;
+                    let ask = item.asks?.length > 0 ? item.asks[0].price : -1;
+                    this.updateItem(itemHrid, enhancementLevel, new Price(bid, ask, timestamp));
+                });
+                obj.time = timestamp;
+                fetch(`${host}/market/upload/order`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json"
@@ -148,28 +166,47 @@
                     body: JSON.stringify(obj)
                 });
             })
+            setInterval(() => { this.save() }, 1000 * 600);
+        }
+        mergeData(obj) {
+
+            Object.entries(obj.market).forEach(([itemName, price]) => {
+                let itemHrid = io.itemDict[itemName]
+                if (itemHrid) this.updateItem(itemHrid, 0, new Price(price.bid, price.ask, obj.time));
+            });
+
         }
         getItemPrice(itemHrid, enhancementLevel) {
             return this.marketData[itemHrid + ":" + enhancementLevel];
         }
         async getItemPriceAsync(itemHrid, enhancementLevel) {
-            if (this.marketData[itemHrid + ":" + enhancementLevel]) return this.marketData[itemHrid + ":" + enhancementLevel];
-            let res = await fetch("https://mooket.qi-e.top/market/upload/order", {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ itemHrid: itemHrid, enhancementLevel: enhancementLevel })
-            });
-            res = await res.json();
-            return res;
+            const params = new URLSearchParams();
+            params.append("itemHrid", itemHrid);
+            params.append("enhancementLevel", enhancementLevel);
+
+            let res = await fetch(`${host}/market/item/price?${params}`);
+            if (res.status != 200) return this.getItemPrice(itemHrid, enhancementLevel);//兜底逻辑，防止服务器出错
+            let priceObj = await res.json();
+            this.updateItem(res.itemHrid, res.enhancementLevel, priceObj)
+
+            return priceObj;
+        }
+        updateItem(itemHrid, enhancementLevel, priceObj) {
+            let localItem = this.marketData[itemHrid + ":" + enhancementLevel];
+            if (!localItem || localItem.time < priceObj.time) {
+                this.marketData[itemHrid + ":" + enhancementLevel] = priceObj;
+            }
         }
         save() {
             localStorage.setItem("MWICore_marketData", JSON.stringify(this.marketData));
         }
     }
+    waitForGame().then(() => {
+        init();
+    });
     function init() {
-        io.market = new CoreMarket();
-
+        io.itemDict = {};
+        Object.entries(io.lang.en.translation.itemNames).forEach(([k, v]) => { io.itemDict[v] = k });
+        io.coreMarket = new CoreMarket();
     }
 })();
