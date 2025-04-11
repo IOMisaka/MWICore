@@ -103,7 +103,7 @@
             targetObj[callbackProp] = originalCallback;
         };
     }
-    const host = "http://127.0.0.1:8767"
+    const host = "https://mooket.qi-e.top"
 
     function waitForGame() {
         return new Promise(resolve => {
