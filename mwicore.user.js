@@ -37,39 +37,39 @@
             node.remove();
             const response = await fetch(scriptUrl);
             if (!response.ok) throw new Error(`Failed to fetch script: ${response.status}`);
-            
+
             let sourceCode = await response.text();
-            
+
             // Define injection points as configurable patterns
             const injectionPoints = [
-                { 
-                    pattern: "Ca.a.use", 
-                    replacement: `window.${injectSpace}.lang=Oa;Ca.a.use` 
+                {
+                    pattern: "Ca.a.use",
+                    replacement: `window.${injectSpace}.lang=Oa;Ca.a.use`
                 },
-                { 
-                    pattern: "class tp extends s.a.Component{constructor(e){var t;super(e),t=this,", 
-                    replacement: `class tp extends s.a.Component{constructor(e){var t;super(e),t=this,window.${injectSpace}.game=this,` 
+                {
+                    pattern: "class tp extends s.a.Component{constructor(e){var t;super(e),t=this,",
+                    replacement: `class tp extends s.a.Component{constructor(e){var t;super(e),t=this,window.${injectSpace}.game=this,`
                 },
-                { 
-                    pattern: "var Q=W;", 
-                    replacement: `window.${injectSpace}.buffCalculator=W;var Q=W;` 
+                {
+                    pattern: "var Q=W;",
+                    replacement: `window.${injectSpace}.buffCalculator=W;var Q=W;`
                 },
-                { 
-                    pattern: "class Dn", 
-                    replacement: `window.${injectSpace}.alchemyCalculator=Mn;class Dn` 
+                {
+                    pattern: "class Dn",
+                    replacement: `window.${injectSpace}.alchemyCalculator=Mn;class Dn`
                 },
-                { 
-                    pattern: "var z=q;", 
-                    replacement: `window.${injectSpace}.actionManager=q;var z=q;` 
+                {
+                    pattern: "var z=q;",
+                    replacement: `window.${injectSpace}.actionManager=q;var z=q;`
                 }
             ];
-    
-            injectionPoints.forEach(({pattern, replacement}) => {
+
+            injectionPoints.forEach(({ pattern, replacement }) => {
                 if (sourceCode.includes(pattern)) {
                     sourceCode = sourceCode.replace(pattern, replacement);
                 }
             });
-    
+
             const newNode = document.createElement('script');
             newNode.textContent = sourceCode;
             document.body.appendChild(newNode);
@@ -146,7 +146,7 @@
             //core data
             let marketDataStr = localStorage.getItem("MWICore_marketData") || "{}";
             this.marketData = JSON.parse(marketDataStr);
-            
+
             //mwiapi data
             let mwiapiJsonStr = localStorage.getItem("MWIAPI_JSON") || localStorage.getItem("MWITools_marketAPI_json");
             if (mwiapiJsonStr) {
@@ -184,7 +184,7 @@
                     body: JSON.stringify(obj)
                 });
             })
-            setInterval(() => { this.save() }, 1000 * 600);
+            setInterval(() => { this.save(); }, 1000 * 600);
         }
         mergeData(obj) {
             Object.entries(obj.market).forEach(([itemName, price]) => {
@@ -193,15 +193,15 @@
             });
             this.save();
         }
-        getItemPrice(itemHrid, enhancementLevel=0) {
+        getItemPrice(itemHrid, enhancementLevel = 0) {
             let priceObj = this.marketData[itemHrid + ":" + enhancementLevel];
             if (!priceObj) return null;
-            
+
             if (priceObj.time > Date.now() / 1000 - 60) return priceObj;//一分钟内直接返回本地数据，防止频繁请求服务器
             setTimeout(() => { this.getItemPriceAsync(itemHrid, enhancementLevel) }, 0);//异步获取最新数据，防止阻塞主线程
             return priceObj;
         }
-        async getItemPriceAsync(itemHrid, enhancementLevel=0) {
+        async getItemPriceAsync(itemHrid, enhancementLevel = 0) {
             const params = new URLSearchParams();
             params.append("itemHrid", itemHrid);
             params.append("enhancementLevel", enhancementLevel);
@@ -241,5 +241,5 @@
     waitForGame().then(() => {
         init();
     });
-    
+
 })();
