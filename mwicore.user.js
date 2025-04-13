@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MWICore
 // @namespace    http://tampermonkey.net/
-// @version      0.0.2
+// @version      0.0.3
 // @description  toolkit, for MilkyWayIdle.一些工具函数，和一些注入对象，市场数据API等。
 // @author       IOMisaka
 // @match        https://www.milkywayidle.com/*
@@ -197,10 +197,9 @@
         }
         getItemPrice(itemHrid, enhancementLevel = 0) {
             let priceObj = this.marketData[itemHrid + ":" + enhancementLevel];
+            if (priceObj?.time > Date.now() / 1000 - 60) return priceObj;//一分钟内直接返回本地数据，防止频繁请求服务器
+            setTimeout(() => { this.getItemPriceAsync(itemHrid, enhancementLevel) }, 0);//异步获取最新数据，防止阻塞
             if (!priceObj) return null;
-
-            if (priceObj.time > Date.now() / 1000 - 60) return priceObj;//一分钟内直接返回本地数据，防止频繁请求服务器
-            setTimeout(() => { this.getItemPriceAsync(itemHrid, enhancementLevel) }, 0);//异步获取最新数据，防止阻塞主线程
             return priceObj;
         }
         async getItemPriceAsync(itemHrid, enhancementLevel = 0) {
@@ -209,7 +208,7 @@
             params.append("enhancementLevel", enhancementLevel);
 
             let res = await fetch(`${HOST}/market/item/price?${params}`);
-            if (res.status != 200) return this.getItemPrice(itemHrid, enhancementLevel);//兜底逻辑，防止服务器出错
+            if (res.status != 200) return this.getItemPrice(itemHrid, enhancementLevel);//获取失败，直接返回本地数据
             let priceObj = await res.json();
             this.updateItem(res.itemHrid, res.enhancementLevel, priceObj)
             return priceObj;
