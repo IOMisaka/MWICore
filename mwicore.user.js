@@ -16,7 +16,7 @@
     if (window[injectSpace]) return;//已经注入
     let io = {//供外部调用的接口
         version: "0.1.0",//版本号
-        inited: false,//是否初始化完成，完成会还会通过window发送一个自定义事件 MWICore_inited
+        MWICoreInitialized: false,//是否初始化完成，完成会还会通过window发送一个自定义事件 MWICoreInitialized
 
         /*一些可以直接用的游戏数据，欢迎大家一起来整理
         game.state.levelExperienceTable //经验表
@@ -31,7 +31,7 @@
 
         /* marketJson兼容接口 */
         get marketJson() {
-            return this.inited && new Proxy(this.coreMarket, {
+            return this.MWICoreInitialized && new Proxy(this.coreMarket, {
                 get(coreMarket, prop) {
                     if (prop === "market") {
                         return new Proxy(coreMarket, {
@@ -99,9 +99,9 @@
             const newNode = document.createElement('script');
             newNode.textContent = sourceCode;
             document.body.appendChild(newNode);
-            console.log('Script patched successfully.')
+            console.info('MWICore patched successfully.')
         } catch (error) {
-            console.error('Script patching failed:', error);
+            console.error('MWICore patching failed:', error);
         }
     }
     new MutationObserver((mutationsList, obs) => {
@@ -323,9 +323,9 @@
         Object.entries(io.lang.en.translation.itemNames).forEach(([k, v]) => { io.itemNameToHridDict[v] = k });
         Object.entries(io.lang.zh.translation.itemNames).forEach(([k, v]) => { io.itemNameToHridDict[v] = k });
         io.coreMarket = new CoreMarket();
-        io.inited = true;
-        window.dispatchEvent(new CustomEvent("MWICore_inited"))
-        console.log("MWICore_inited event dispatched. window.mwi.inited=true");
+        io.MWICoreInitialized = true;
+        window.dispatchEvent(new CustomEvent("MWICoreInitialized"))
+        console.info("MWICoreInitialized event dispatched. window.mwi.MWICoreInitialized=true");
     }
     new Promise(resolve => {
         const interval = setInterval(() => {
