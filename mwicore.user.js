@@ -26,8 +26,10 @@
 
         //core市场
         coreMarket: null,//coreMarket.marketData 格式{"/items/apple_yogurt:0":{ask,bid,time}}
-        itemNameToHridDict: null,//物品英文名称反查表
+        itemNameToHridDict: null,//物品名称反查表
         hookCallback: hookCallback,
+        inited:false,//是否初始化完成
+
     };
     window[injectSpace] = io;
 
@@ -227,18 +229,18 @@
         Object.entries(io.lang.en.translation.itemNames).forEach(([k, v]) => { io.itemNameToHridDict[v] = k });
         Object.entries(io.lang.zh.translation.itemNames).forEach(([k, v]) => { io.itemNameToHridDict[v] = k });
         io.coreMarket = new CoreMarket();
+        io.inited = true;
+        window.dispatchEvent(new CustomEvent("MWICore_inited"))
+        console.log("MWICore_inited event dispatched. window.mwi.inited=true");
     }
-    function waitForGame() {
-        return new Promise(resolve => {
-            const interval = setInterval(() => {
-                if (io.game && io.lang) {
-                    clearInterval(interval);
-                    resolve();
-                }
-            }, 1000);
-        });
-    }
-    waitForGame().then(() => {
+    new Promise(resolve => {
+        const interval = setInterval(() => {
+            if (io.game && io.lang) {
+                clearInterval(interval);
+                resolve();
+            }
+        }, 500);
+    }).then(() => {
         init();
     });
 
