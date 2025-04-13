@@ -289,8 +289,8 @@
 
             // 构造请求参数
             const params = new URLSearchParams();
-            params.append("itemHrid", itemHrid);
-            params.append("enhancementLevel", enhancementLevel);
+            params.append("name", itemHrid);
+            params.append("level", enhancementLevel);
 
             let res = null;
             this.fetchCount++;
