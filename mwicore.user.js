@@ -170,7 +170,7 @@
     class CoreMarket {
         marketData = {};//市场数据，带强化等级，存储格式{"/items/apple_yogurt:0":{ask,bid,time}}
         fetchTimeDict = {};//记录上次API请求时间，防止频繁请求
-        ttl=300;//缓存时间，单位秒
+        ttl = 300;//缓存时间，单位秒
 
         constructor() {
             //core data
@@ -227,7 +227,7 @@
         mergeData(obj) {
             Object.entries(obj.market).forEach(([itemName, price]) => {
                 let itemHrid = io.ensureItemHrid(itemName);
-                if (itemHrid) this.updateItem(itemHrid, 0, new Price(price.bid, price.ask, obj.time),false);//本地更新
+                if (itemHrid) this.updateItem(itemHrid, 0, new Price(price.bid, price.ask, obj.time), false);//本地更新
             });
             this.save();
         }
@@ -307,13 +307,13 @@
             }
             let resObj = await res.json();
             let priceObj = new Price(resObj.bid, resObj.ask, Date.now() / 1000);
-            if(resObj.ttl)ttl=resObj.ttl;//更新ttl
+            if (resObj.ttl) ttl = resObj.ttl;//更新ttl
             this.updateItem(itemHrid, enhancementLevel, priceObj);
             return priceObj;
         }
-        updateItem(itemHrid, enhancementLevel, priceObj,isFetch=true) {
+        updateItem(itemHrid, enhancementLevel, priceObj, isFetch = true) {
             let localItem = this.marketData[itemHrid + ":" + enhancementLevel];
-            if(isFetch)this.fetchTimeDict[itemHrid + ":" + enhancementLevel] = Date.now() / 1000;//fetch时间戳
+            if (isFetch) this.fetchTimeDict[itemHrid + ":" + enhancementLevel] = Date.now() / 1000;//fetch时间戳
             if (!localItem || localItem.time < priceObj.time) {//服务器数据更新则更新本地数据
                 this.marketData[itemHrid + ":" + enhancementLevel] = priceObj;
             }
