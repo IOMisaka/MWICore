@@ -264,7 +264,7 @@
             if (specialPrice) return specialPrice;
 
             let priceObj = this.marketData[itemHrid + ":" + enhancementLevel];
-            if (Date.now() / 1000 - this.fetchTimeDict[itemHrid + ":" + enhancementLevel] < ttl) return priceObj;//1分钟内直接返回本地数据，防止频繁请求服务器
+            if (Date.now() / 1000 - this.fetchTimeDict[itemHrid + ":" + enhancementLevel] < this.ttl) return priceObj;//1分钟内直接返回本地数据，防止频繁请求服务器
             if (this.fetchCount > 10) return priceObj;//过于频繁请求服务器
 
             setTimeout(() => { this.getItemPriceAsync(itemHrid, enhancementLevel); }, 0);//后台获取最新数据，防止阻塞
@@ -284,7 +284,7 @@
             let specialPrice = this.getSpecialPrice(itemHrid);
             if (specialPrice) return specialPrice;
 
-            if (Date.now() / 1000 - this.fetchTimeDict[itemHrid + ":" + enhancementLevel] < ttl) return this.marketData[itemHrid + ":" + enhancementLevel];//1分钟内请求直接返回本地数据，防止频繁请求服务器
+            if (Date.now() / 1000 - this.fetchTimeDict[itemHrid + ":" + enhancementLevel] < this.ttl) return this.marketData[itemHrid + ":" + enhancementLevel];//1分钟内请求直接返回本地数据，防止频繁请求服务器
             if (this.fetchCount > 10) return this.marketData[itemHrid + ":" + enhancementLevel];//过于频繁请求服务器
 
             // 构造请求参数
