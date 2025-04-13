@@ -307,7 +307,7 @@
             }
             let resObj = await res.json();
             let priceObj = new Price(resObj.bid, resObj.ask, Date.now() / 1000);
-            if (resObj.ttl) ttl = resObj.ttl;//更新ttl
+            if (resObj.ttl) this.ttl = resObj.ttl;//更新ttl
             this.updateItem(itemHrid, enhancementLevel, priceObj);
             return priceObj;
         }
