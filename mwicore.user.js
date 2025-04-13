@@ -27,8 +27,13 @@
         //core市场
         coreMarket: null,//coreMarket.marketData 格式{"/items/apple_yogurt:0":{ask,bid,time}}
         itemNameToHridDict: null,//物品名称反查表
+        getItemHrid: function (itemName) { 
+            if (itemName?.startsWith("/items/")) return itemName; 
+            return this.itemNameToHridDict[itemName] 
+        },//物品名称转HRID
+
         hookCallback: hookCallback,
-        inited:false,//是否初始化完成
+        inited: false,//是否初始化完成
 
     };
     window[injectSpace] = io;
@@ -196,6 +201,8 @@
             this.save();
         }
         getItemPrice(itemHrid, enhancementLevel = 0) {
+            itemHrid = io.getItemHrid(itemHrid);
+            
             let priceObj = this.marketData[itemHrid + ":" + enhancementLevel];
             if (priceObj?.time > Date.now() / 1000 - 60) return priceObj;//一分钟内直接返回本地数据，防止频繁请求服务器
             setTimeout(() => { this.getItemPriceAsync(itemHrid, enhancementLevel) }, 0);//异步获取最新数据，防止阻塞
@@ -203,6 +210,8 @@
             return priceObj;
         }
         async getItemPriceAsync(itemHrid, enhancementLevel = 0) {
+            itemHrid = io.getItemHrid(itemHrid);
+
             const params = new URLSearchParams();
             params.append("itemHrid", itemHrid);
             params.append("enhancementLevel", enhancementLevel);
