@@ -225,7 +225,7 @@
         mergeData(obj) {
             Object.entries(obj.market).forEach(([itemName, price]) => {
                 let itemHrid = io.ensureItemHrid(itemName);
-                if (itemHrid) this.updateItem(itemHrid, 0, new Price(price.bid, price.ask, obj.time));
+                if (itemHrid) this.updateItem(itemHrid, 0, new Price(price.bid, price.ask, obj.time),false);//本地更新
             });
             this.save();
         }
@@ -307,9 +307,10 @@
             this.updateItem(priceObj.itemHrid, priceObj.enhancementLevel, priceObj)
             return priceObj;
         }
-        updateItem(itemHrid, enhancementLevel, priceObj) {
+        updateItem(itemHrid, enhancementLevel, priceObj,isFetch=true) {
             let localItem = this.marketData[itemHrid + ":" + enhancementLevel];
-            this.fetchTimeDict[itemHrid + ":" + enhancementLevel] = Date.now() / 1000;//fetch时间戳
+            if(isFetch)//请求来的数据才更新fetch时间戳
+                this.fetchTimeDict[itemHrid + ":" + enhancementLevel] = Date.now() / 1000;//fetch时间戳
             if (!localItem || localItem.time < priceObj.time) {//服务器数据更新则更新本地数据
                 this.marketData[itemHrid + ":" + enhancementLevel] = priceObj;
             }
