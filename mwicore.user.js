@@ -25,11 +25,30 @@
         alchemyCalculator: null,//注入炼金计算对象
 
         //core市场
+        /* marketJson兼容接口 */
+        get marketJson() {
+            return this.inited && new Proxy(this.coreMarket, {
+                get(coreMarket, prop) {
+                    if (prop === "market") {
+                        return new Proxy(coreMarket, {
+                            get(coreMarket, itemHridOrName) {
+                                return coreMarket.getItemPrice(itemHridOrName);
+                            }
+                        });
+                    }
+                    return null;
+                }
+
+            });
+        },
         coreMarket: null,//coreMarket.marketData 格式{"/items/apple_yogurt:0":{ask,bid,time}}
         itemNameToHridDict: null,//物品名称反查表
-        getItemHrid: function (itemName) { 
-            if (itemName?.startsWith("/items/")) return itemName; 
-            return this.itemNameToHridDict[itemName] 
+        ensureItemHrid: function (itemHridOrName) {
+            let itemHrid = this.itemNameToHridDict[itemHridOrName];
+            if (itemHrid) return itemHrid;
+            if (itemHridOrName?.startsWith("/items/") && this.game?.state?.itemDetailDict[itemHridOrName]?.isTradable)//必须是可交易的物品
+                return itemHridOrName;
+            return null;
         },//物品名称转HRID
 
         hookCallback: hookCallback,
@@ -193,6 +212,7 @@
             })
             setInterval(() => { this.save(); }, 1000 * 600);
         }
+
         mergeData(obj) {
             Object.entries(obj.market).forEach(([itemName, price]) => {
                 let itemHrid = io.itemNameToHridDict[itemName]
@@ -200,31 +220,52 @@
             });
             this.save();
         }
-        getItemPrice(itemHrid, enhancementLevel = 0) {
-            itemHrid = io.getItemHrid(itemHrid);
-            
+        refreshDict = {};
+        getItemPrice(itemHridOrName, enhancementLevel = 0) {
+            let itemHrid = io.ensureItemHrid(itemHridOrName);
+            if (!itemHrid) return null;
+
             let priceObj = this.marketData[itemHrid + ":" + enhancementLevel];
-            if (priceObj?.time > Date.now() / 1000 - 60) return priceObj;//一分钟内直接返回本地数据，防止频繁请求服务器
-            setTimeout(() => { this.getItemPriceAsync(itemHrid, enhancementLevel) }, 0);//异步获取最新数据，防止阻塞
-            if (!priceObj) return null;
+            if (Date.now() / 1000 - this.refreshDict[itemHrid + ":" + enhancementLevel] < 300 || this.fetchCount>10) return priceObj;//5分钟内直接返回本地数据，防止频繁请求服务器
+            setTimeout( () => { this.getItemPriceAsync(itemHrid, enhancementLevel); }, 0);//后台获取最新数据，防止阻塞
             return priceObj;
         }
-        async getItemPriceAsync(itemHrid, enhancementLevel = 0) {
-            itemHrid = io.getItemHrid(itemHrid);
+        fetchCount = 0;
+        async getItemPriceAsync(itemHridOrName, enhancementLevel = 0) {
+            let itemHrid = io.ensureItemHrid(itemHridOrName);
+            if (!itemHrid) return null;
 
             const params = new URLSearchParams();
             params.append("itemHrid", itemHrid);
             params.append("enhancementLevel", enhancementLevel);
 
-            let res = await fetch(`${HOST}/market/item/price?${params}`);
-            if (res.status != 200) return this.getItemPrice(itemHrid, enhancementLevel);//获取失败，直接返回本地数据
+            if (Date.now() / 1000 - this.refreshDict[itemHrid + ":" + enhancementLevel] < 300 || this.fetchCount > 10) {
+                return this.marketData[itemHrid + ":" + enhancementLevel];//5分钟内直接返回本地数据，防止频繁请求服务器
+            }
+            
+
+            let res = null;
+            this.fetchCount++;
+            try{
+                this.refreshDict[itemHrid + ":" + enhancementLevel] = Date.now() / 1000;//记录更新时间
+                res = await fetch(`${HOST}/market/item/price?${params}`);
+            }catch(e){
+                return this.getItemPrice(itemHrid, enhancementLevel);//获取失败，直接返回本地数据
+            }finally{
+                this.fetchCount--;
+            }
+            if (res.status != 200) {
+
+                return this.getItemPrice(itemHrid, enhancementLevel);//获取失败，直接返回本地数据
+            }
             let priceObj = await res.json();
             this.updateItem(res.itemHrid, res.enhancementLevel, priceObj)
             return priceObj;
         }
         updateItem(itemHrid, enhancementLevel, priceObj) {
             let localItem = this.marketData[itemHrid + ":" + enhancementLevel];
-            if (!localItem || localItem.time < priceObj.time) {
+            this.refreshDict[itemHrid + ":" + enhancementLevel] = Date.now() / 1000;//更新时间戳
+            if (!localItem || localItem.time < priceObj.time) {//服务器数据更新则更新本地数据
                 this.marketData[itemHrid + ":" + enhancementLevel] = priceObj;
             }
         }
