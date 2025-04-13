@@ -50,8 +50,7 @@
         ensureItemHrid: function (itemHridOrName) {
             let itemHrid = this.itemNameToHridDict[itemHridOrName];
             if (itemHrid) return itemHrid;
-            if (itemHridOrName?.startsWith("/items/") && this?.game?.state?.itemDetailDict)
-                return itemHridOrName;
+            if (itemHridOrName?.startsWith("/items/") && this?.game?.state?.itemDetailDict) return itemHridOrName;
             return null;
         },//各种名字转itemHrid，找不到返回原itemHrid或者null
         hookCallback: hookCallback,//hook回调，用于hook游戏事件等 例如聊天消息mwi.hookCallback(mwi.game, "handleMessageChatMessageReceived", (_,obj)=>{console.log(obj)})
@@ -182,8 +181,8 @@
             if (mwiapiJsonStr) {
                 mwiapiObj = JSON.parse(mwiapiJsonStr);
                 this.mergeData(mwiapiObj);
-            } 
-            if(!mwiapiObj||Date.now()/1000 - mwiapiObj.time>1800){//超过半小时才更新，因为mwiapi每小时更新一次，频繁请求github会报错
+            }
+            if (!mwiapiObj || Date.now() / 1000 - mwiapiObj.time > 1800) {//超过半小时才更新，因为mwiapi每小时更新一次，频繁请求github会报错
                 fetch(MWIAPI_URL).then(res => {
                     res.text().then(mwiapiJsonStr => {
                         mwiapiObj = JSON.parse(mwiapiJsonStr);
@@ -230,20 +229,21 @@
             });
             this.save();
         }
-        
+
         /**
          * 部分特殊物品的价格
          * 例如金币固定1，牛铃固定为牛铃袋/10的价格
-         * @param {string} itemHrid - 
+         * @param {string} itemHrid - 物品hrid
          * @returns {Price|null} - 返回对应商品的价格对象，如果没有则null
          */
-        getSpecialPrice(itemHrid){
-            switch(itemHrid){
+        getSpecialPrice(itemHrid) {
+            switch (itemHrid) {
                 case "/items/coin":
                     return new Price(1, 1, Date.now() / 1000);
-                case "/items/cowbell":
+                case "/items/cowbell": {
                     let cowbells = this.getItemPrice("/items/bag_of_10_cowbells");
-                    return cowbells&&{ bid: cowbells.bid / 10, ask: cowbells.ask / 10 ,time:cowbells.time};
+                    return cowbells && { bid: cowbells.bid / 10, ask: cowbells.ask / 10, time: cowbells.time };
+                }
                 default:
                     return null;
             }
@@ -259,13 +259,13 @@
             let itemHrid = io.ensureItemHrid(itemHridOrName);
             if (!itemHrid) return null;
             let specialPrice = this.getSpecialPrice(itemHrid);
-            if(specialPrice) return specialPrice;
+            if (specialPrice) return specialPrice;
 
             let priceObj = this.marketData[itemHrid + ":" + enhancementLevel];
             if (Date.now() / 1000 - this.fetchTimeDict[itemHrid + ":" + enhancementLevel] < 60) return priceObj;//1分钟内直接返回本地数据，防止频繁请求服务器
             if (this.fetchCount > 10) return priceObj;//过于频繁请求服务器
 
-            setTimeout( () => { this.getItemPriceAsync(itemHrid, enhancementLevel); }, 0);//后台获取最新数据，防止阻塞
+            setTimeout(() => { this.getItemPriceAsync(itemHrid, enhancementLevel); }, 0);//后台获取最新数据，防止阻塞
             return priceObj;
         }
         fetchCount = 0;
@@ -280,11 +280,11 @@
             let itemHrid = io.ensureItemHrid(itemHridOrName);
             if (!itemHrid) return null;
             let specialPrice = this.getSpecialPrice(itemHrid);
-            if(specialPrice) return specialPrice;
+            if (specialPrice) return specialPrice;
 
             if (Date.now() / 1000 - this.fetchTimeDict[itemHrid + ":" + enhancementLevel] < 60) return this.marketData[itemHrid + ":" + enhancementLevel];//1分钟内请求直接返回本地数据，防止频繁请求服务器
             if (this.fetchCount > 10) return this.marketData[itemHrid + ":" + enhancementLevel];//过于频繁请求服务器
-            
+
             // 构造请求参数
             const params = new URLSearchParams();
             params.append("itemHrid", itemHrid);
@@ -292,12 +292,12 @@
 
             let res = null;
             this.fetchCount++;
-            try{
+            try {
                 this.fetchTimeDict[itemHrid + ":" + enhancementLevel] = Date.now() / 1000;//记录请求时间
                 res = await fetch(`${HOST}/market/item/price?${params}`);
-            }catch(e){
+            } catch (e) {
                 return this.marketData[itemHrid + ":" + enhancementLevel];//获取失败，直接返回本地数据
-            }finally{
+            } finally {
                 this.fetchCount--;
             }
             if (res.status != 200) {
