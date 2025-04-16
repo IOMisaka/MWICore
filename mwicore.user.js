@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         MWICore
 // @namespace    http://tampermonkey.net/
-// @version      0.1.0
+// @version      0.1.1
 // @description  toolkit, for MilkyWayIdle.一些工具函数，和一些注入对象，市场数据API等。
 // @author       IOMisaka
 // @match        https://www.milkywayidle.com/*
 // @match        https://test.milkywayidle.com/*
+// @icon         https://www.milkywayidle.com/favicon.svg
 // @grant        none
 // @run-at       document-start
 // ==/UserScript==
