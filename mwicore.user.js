@@ -182,13 +182,13 @@
             let mwiapiObj = null;
             if (mwiapiJsonStr) {
                 mwiapiObj = JSON.parse(mwiapiJsonStr);
-                this.mergeData(mwiapiObj);
+                this.mergeMWIData(mwiapiObj);
             }
             if (!mwiapiObj || Date.now() / 1000 - mwiapiObj.time > 1800) {//超过半小时才更新，因为mwiapi每小时更新一次，频繁请求github会报错
                 fetch(MWIAPI_URL).then(res => {
                     res.text().then(mwiapiJsonStr => {
                         mwiapiObj = JSON.parse(mwiapiJsonStr);
-                        this.mergeData(mwiapiObj);
+                        this.mergeMWIData(mwiapiObj);
                         //更新本地缓存数据
                         localStorage.setItem("MWIAPI_JSON", mwiapiJsonStr);//更新本地缓存数据
                         console.info("MWIAPI_JSON updated:", new Date(mwiapiObj.time * 1000).toLocaleString());
@@ -204,7 +204,7 @@
                 obj.marketItemOrderBooks?.orderBooks?.forEach((item, enhancementLevel) => {
                     let bid = item.bids?.length > 0 ? item.bids[0].price : -1;
                     let ask = item.asks?.length > 0 ? item.asks[0].price : -1;
-                    this.updateItem(itemHrid, enhancementLevel, new Price(bid, ask, timestamp));
+                    this.updateItem(itemHrid + ":" + enhancementLevel, new Price(bid, ask, timestamp));
                 });
                 //上报数据
                 obj.time = timestamp;
@@ -224,12 +224,23 @@
          *
          * @param obj 包含市场数据的对象
          */
-        mergeData(obj) {
+        mergeMWIData(obj) {
             Object.entries(obj.market).forEach(([itemName, price]) => {
                 let itemHrid = io.ensureItemHrid(itemName);
-                if (itemHrid) this.updateItem(itemHrid, 0, new Price(price.bid, price.ask, obj.time), false);//本地更新
+                if (itemHrid) this.updateItem(itemHrid + ":" + 0, new Price(price.bid, price.ask, obj.time), false);//本地更新
             });
             this.save();
+        }
+        mergeCoreDataBeforeSave() {
+            let obj = JSON.parse(localStorage.getItem("MWICore_marketData") || "{}");
+            Object.entries(obj).forEach(([itemHridLevel, priceObj]) => {
+                this.updateItem(itemHridLevel, priceObj, false);//本地更新
+            });
+            //不保存，只合并
+        }
+        save() {//保存到localStorage
+            this.mergeCoreDataBeforeSave();//从其他角色合并保存的数据
+            localStorage.setItem("MWICore_marketData", JSON.stringify(this.marketData));
         }
 
         /**
@@ -283,9 +294,9 @@
             if (!itemHrid) return null;
             let specialPrice = this.getSpecialPrice(itemHrid);
             if (specialPrice) return specialPrice;
-
-            if (Date.now() / 1000 - this.fetchTimeDict[itemHrid + ":" + enhancementLevel] < this.ttl) return this.marketData[itemHrid + ":" + enhancementLevel];//1分钟内请求直接返回本地数据，防止频繁请求服务器
-            if (this.fetchCount > 10) return this.marketData[itemHrid + ":" + enhancementLevel];//过于频繁请求服务器
+            let itemHridLevel = itemHrid + ":" + enhancementLevel;
+            if (Date.now() / 1000 - this.fetchTimeDict[itemHridLevel] < this.ttl) return this.marketData[itemHridLevel];//1分钟内请求直接返回本地数据，防止频繁请求服务器
+            if (this.fetchCount > 10) return this.marketData[itemHridLevel];//过于频繁请求服务器
 
             // 构造请求参数
             const params = new URLSearchParams();
@@ -295,27 +306,27 @@
             let res = null;
             this.fetchCount++;
             try {
-                this.fetchTimeDict[itemHrid + ":" + enhancementLevel] = Date.now() / 1000;//记录请求时间
+                this.fetchTimeDict[itemHridLevel] = Date.now() / 1000;//记录请求时间
                 res = await fetch(`${HOST}/market/item/price?${params}`);
             } catch (e) {
-                return this.marketData[itemHrid + ":" + enhancementLevel];//获取失败，直接返回本地数据
+                return this.marketData[itemHridLevel];//获取失败，直接返回本地数据
             } finally {
                 this.fetchCount--;
             }
             if (res.status != 200) {
-                return this.marketData[itemHrid + ":" + enhancementLevel];//获取失败，直接返回本地数据
+                return this.marketData[itemHridLevel];//获取失败，直接返回本地数据
             }
             let resObj = await res.json();
             let priceObj = new Price(resObj.bid, resObj.ask, Date.now() / 1000);
             if (resObj.ttl) this.ttl = resObj.ttl;//更新ttl
-            this.updateItem(itemHrid, enhancementLevel, priceObj);
+            this.updateItem(itemHridLevel, priceObj);
             return priceObj;
         }
-        updateItem(itemHrid, enhancementLevel, priceObj, isFetch = true) {
-            let localItem = this.marketData[itemHrid + ":" + enhancementLevel];
-            if (isFetch) this.fetchTimeDict[itemHrid + ":" + enhancementLevel] = Date.now() / 1000;//fetch时间戳
+        updateItem(itemHridLevel, priceObj, isFetch = true) {
+            let localItem = this.marketData[itemHridLevel];
+            if (isFetch) this.fetchTimeDict[itemHridLevel] = Date.now() / 1000;//fetch时间戳
             if (!localItem || localItem.time < priceObj.time) {//服务器数据更新则更新本地数据
-                this.marketData[itemHrid + ":" + enhancementLevel] = priceObj;
+                this.marketData[itemHridLevel] = priceObj;
             }
         }
         save() {
