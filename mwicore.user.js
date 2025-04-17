@@ -323,11 +323,13 @@
             let priceObj = this.marketData[itemHrid + ":" + enhancementLevel];
             if (Date.now() / 1000 - this.fetchTimeDict[itemHrid + ":" + enhancementLevel] < this.ttl) return priceObj;//1分钟内直接返回本地数据，防止频繁请求服务器
             if (this.fetchCount > 10) return priceObj;//过于频繁请求服务器
-
-            setTimeout(() => { this.getItemPriceAsync(itemHrid, enhancementLevel); }, this.fetchCount*200);//后台获取最新数据，防止阻塞
+            
+            this.fetchCount++;
+            setTimeout(() => { this.fetchCount--;this.getItemPriceAsync(itemHrid, enhancementLevel); }, this.fetchCount*200);//后台获取最新数据，防止阻塞
             return priceObj;
         }
-        fetchCount = 0;
+        fetchCount = 0;//防止频繁请求服务器，后台获取最新数据
+
         /**
          * 异步获取物品价格
          *
@@ -342,7 +344,6 @@
             if (specialPrice) return specialPrice;
             let itemHridLevel = itemHrid + ":" + enhancementLevel;
             if (Date.now() / 1000 - this.fetchTimeDict[itemHridLevel] < this.ttl) return this.marketData[itemHridLevel];//1分钟内请求直接返回本地数据，防止频繁请求服务器
-            if (this.fetchCount > 10) return this.marketData[itemHridLevel];//过于频繁请求服务器
 
             // 构造请求参数
             const params = new URLSearchParams();
@@ -350,14 +351,13 @@
             params.append("level", enhancementLevel);
 
             let res = null;
-            this.fetchCount++;
             try {
                 this.fetchTimeDict[itemHridLevel] = Date.now() / 1000;//记录请求时间
                 res = await fetchWithTimeout(`${HOST}/market/item/price?${params}`);
             } catch (e) {
                 return this.marketData[itemHridLevel];//获取失败，直接返回本地数据
             } finally {
-                this.fetchCount--;
+                
             }
             if (res.status != 200) {
                 return this.marketData[itemHridLevel];//获取失败，直接返回本地数据
