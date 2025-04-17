@@ -324,7 +324,7 @@
             if (Date.now() / 1000 - this.fetchTimeDict[itemHrid + ":" + enhancementLevel] < this.ttl) return priceObj;//1分钟内直接返回本地数据，防止频繁请求服务器
             if (this.fetchCount > 10) return priceObj;//过于频繁请求服务器
 
-            setTimeout(() => { this.getItemPriceAsync(itemHrid, enhancementLevel); }, 0);//后台获取最新数据，防止阻塞
+            setTimeout(() => { this.getItemPriceAsync(itemHrid, enhancementLevel); }, this.fetchCount*200);//后台获取最新数据，防止阻塞
             return priceObj;
         }
         fetchCount = 0;
