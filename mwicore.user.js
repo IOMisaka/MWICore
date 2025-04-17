@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MWICore
 // @namespace    http://tampermonkey.net/
-// @version      0.1.1
+// @version      0.1.2
 // @description  toolkit, for MilkyWayIdle.一些工具函数，和一些注入对象，市场数据API等。
 // @author       IOMisaka
 // @match        https://www.milkywayidle.com/*
@@ -16,7 +16,7 @@
     let injectSpace = "mwi";//use window.mwi to access the injected object
     if (window[injectSpace]) return;//已经注入
     let io = {//供外部调用的接口
-        version: "0.1.0",//版本号
+        version: "0.1.2",//版本号，未改动原有接口只更新最后一个版本号，更改了接口会更改次版本号，主版本暂时不更新，等稳定之后再考虑主版本号更新
         MWICoreInitialized: false,//是否初始化完成，完成会还会通过window发送一个自定义事件 MWICoreInitialized
 
         /*一些可以直接用的游戏数据，欢迎大家一起来整理
@@ -55,6 +55,7 @@
             return null;
         },//各种名字转itemHrid，找不到返回原itemHrid或者null
         hookCallback: hookCallback,//hook回调，用于hook游戏事件等 例如聊天消息mwi.hookCallback(mwi.game, "handleMessageChatMessageReceived", (_,obj)=>{console.log(obj)})
+        fetchWithTimeout: fetchWithTimeout,//带超时的fetch
     };
     window[injectSpace] = io;
 
@@ -152,7 +153,51 @@
             targetObj[callbackProp] = originalCallback;
         };
     }
+    /**
+     * 带超时功能的fetch封装
+     * @param {string} url - 请求URL
+     * @param {object} options - fetch选项
+     * @param {number} timeout - 超时时间(毫秒)，默认10秒
+     * @returns {Promise} - 返回fetch的Promise
+     */
+    function fetchWithTimeout(url, options = {}, timeout = 10000) {
+        // 创建AbortController实例
+        const controller = new AbortController();
+        const { signal } = controller;
 
+        // 设置超时计时器
+        const timeoutId = setTimeout(() => {
+            controller.abort(new Error(`请求超时: ${timeout}ms`));
+        }, timeout);
+
+        // 合并选项，添加signal
+        const fetchOptions = {
+            ...options,
+            signal
+        };
+
+        // 发起fetch请求
+        return fetch(url, fetchOptions)
+            .then(response => {
+                // 清除超时计时器
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP错误! 状态码: ${response.status}`);
+                }
+                return response;
+            })
+            .catch(error => {
+                // 清除超时计时器
+                clearTimeout(timeoutId);
+
+                // 如果是中止错误，重新抛出超时错误
+                if (error.name === 'AbortError') {
+                    throw new Error(`请求超时: ${timeout}ms`);
+                }
+                throw error;
+            });
+    }
 
     /*实时市场模块*/
     const HOST = "https://mooket.qi-e.top";
@@ -209,7 +254,7 @@
                 });
                 //上报数据
                 obj.time = timestamp;
-                fetch(`${HOST}/market/upload/order`, {
+                fetchWithTimeout(`${HOST}/market/upload/order`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json"
@@ -308,7 +353,7 @@
             this.fetchCount++;
             try {
                 this.fetchTimeDict[itemHridLevel] = Date.now() / 1000;//记录请求时间
-                res = await fetch(`${HOST}/market/item/price?${params}`);
+                res = await fetchWithTimeout(`${HOST}/market/item/price?${params}`);
             } catch (e) {
                 return this.marketData[itemHridLevel];//获取失败，直接返回本地数据
             } finally {
