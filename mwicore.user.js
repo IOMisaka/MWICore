@@ -72,29 +72,38 @@
             const injectionPoints = [
                 {
                     pattern: "Ca.a.use",
-                    replacement: `window.${injectSpace}.lang=Oa;Ca.a.use`
+                    replacement: `window.${injectSpace}.lang=Oa;Ca.a.use`,
+                    description: "注入语言翻译对象"
                 },
                 {
-                    pattern: "class tp extends s.a.Component{constructor(e){var t;super(e),t=this,",
-                    replacement: `class tp extends s.a.Component{constructor(e){var t;super(e),t=this,window.${injectSpace}.game=this,`
+                    pattern: "class lp extends s.a.Component{constructor(e){var t;super(e),t=this,",
+                    replacement: `class lp extends s.a.Component{constructor(e){var t;super(e),t=this,window.${injectSpace}.game=this,`,
+                    description: "注入游戏对象"
+
                 },
                 {
                     pattern: "var Q=W;",
-                    replacement: `window.${injectSpace}.buffCalculator=W;var Q=W;`
+                    replacement: `window.${injectSpace}.buffCalculator=W;var Q=W;`,
+                    description: "注入buff计算对象"
                 },
                 {
                     pattern: "class Dn",
-                    replacement: `window.${injectSpace}.alchemyCalculator=Mn;class Dn`
+                    replacement: `window.${injectSpace}.alchemyCalculator=Mn;class Dn`, 
+                    description: "注入炼金计算对象"
                 },
                 {
                     pattern: "var z=q;",
-                    replacement: `window.${injectSpace}.actionManager=q;var z=q;`
+                    replacement: `window.${injectSpace}.actionManager=q;var z=q;`,
+                    description: "注入动作管理对象"
                 }
             ];
 
-            injectionPoints.forEach(({ pattern, replacement }) => {
+            injectionPoints.forEach(({ pattern, replacement,description }) => {
                 if (sourceCode.includes(pattern)) {
                     sourceCode = sourceCode.replace(pattern, replacement);
+                    console.info(`MWICore injecting: ${description}`);
+                }else{
+                    console.warn(`MWICore injecting failed: ${description}`);
                 }
             });
 
@@ -110,7 +119,7 @@
         mutationsList.forEach((mutationRecord) => {
             for (const node of mutationRecord.addedNodes) {
                 if (node.src) {
-                    if (node.src.endsWith('main.aecc7346.chunk.js')) {
+                    if (node.src.search(/.*main\..*\.chunk.js/)===0) {
                         obs.disconnect();
                         patchScript(node);
                     }
